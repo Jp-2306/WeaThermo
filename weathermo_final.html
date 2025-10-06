@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Weathermo JP</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+      color: #e0e0e0;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+    .header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(10px);
+      z-index: 1000;
+      padding: 1rem;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      border-bottom: 2px solid orange;
+    }
+    .app-name { 
+      font-size:1.5rem; 
+      font-weight:700; 
+      color: orange; 
+      text-shadow:0 0 10px orange; 
+    }
+    .app-name span { font-size:0.7rem; margin-left:4px; vertical-align: super; }
+    .weather-summary { text-align:right; font-size:0.9rem; }
+    .temp { font-size:1.2rem; font-weight:700; color:#ffd700; }
+
+    #map {
+      height: 40vh;
+      width: 100%;
+      margin-top: 4rem;
+      border: 2px solid orange;
+      border-radius: 8px;
+    }
+
+    .search-container {
+      padding: 0 1rem 1rem;
+      position: relative;
+      z-index: 500;
+      margin-top: 0.75rem;
+    }
+    .search-input {
+      width: 100%;
+      padding: 0.65rem 2.5rem 0.65rem 1rem;
+      border: none;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.08);
+      color: #e0e0e0;
+      font-size: 1rem;
+      backdrop-filter: blur(5px);
+      box-sizing: border-box;
+    }
+    .search-btn {
+      position: absolute;
+      top: 50%;
+      right: 1rem;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: orange;
+      cursor: pointer;
+      font-size: 1.1rem;
+    }
+
+    .weather-info {
+      padding: 0.75rem 1rem 2rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 0.8rem;
+      max-width: 100%;
+    }
+    .weather-card {
+      background: rgba(255,255,255,0.04);
+      border-radius: 12px;
+      padding: 0.6rem;
+      text-align: center;
+      border: 1px solid orange;
+      box-shadow: 0 0 10px orange;
+      font-size: 0.95rem;
+    }
+    .weather-value { font-weight:700; color: orange; font-size:1.05rem; }
+    .weather-label { font-size:0.78rem; color:#a0a0a0; }
+
+    footer {
+      background: rgba(0,0,0,0.85);
+      border-top: 2px solid orange;
+      padding: 2rem 1rem;
+      margin-top: 2rem;
+      color: #e0e0e0;
+    }
+    footer h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: orange;
+      margin-bottom: 0.5rem;
+    }
+    footer .footer-columns {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 2rem;
+    }
+    footer .contact-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 0.3rem;
+    }
+    footer .contact-item i {
+      margin-right: 8px;
+      color: orange;
+    }
+    footer .credits {
+      font-size: 0.85rem;
+      color: #aaa;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="app-name">Weathermo<span>JP</span></div>
+    <div class="weather-summary">
+      <div id="summary">—</div>
+      <div class="temp" id="current-temp">—</div>
+    </div>
+  </header>
+
+  <!-- Mapa -->
+  <div id="map"></div>
+
+  <!-- Barra de búsqueda -->
+  <div class="search-container">
+    <input id="search-input" class="search-input" placeholder="Buscar ciudad o coordenadas..." autocomplete="off"/>
+    <button class="search-btn" onclick="searchLocation()"><i class="fas fa-search"></i></button>
+  </div>
+
+  <!-- Info del clima -->
+  <div class="weather-info">
+    <div class="weather-card"><i class="fas fa-temperature-high"></i>
+      <div class="weather-value" id="temp-value">—</div>
+      <div class="weather-label">Temperatura</div>
+    </div>
+    <div class="weather-card"><i class="fas fa-tint"></i>
+      <div class="weather-value" id="humidity-value">—</div>
+      <div class="weather-label">Humedad</div>
+    </div>
+    <div class="weather-card"><i class="fas fa-wind"></i>
+      <div class="weather-value" id="wind-value">—</div>
+      <div class="weather-label">Viento</div>
+    </div>
+    <div class="weather-card"><i class="fas fa-smile"></i>
+      <div class="weather-value" id="comfort-value">—</div>
+      <div class="weather-label">Confort térmico</div>
+    </div>
+    <div class="weather-card"><i class="fas fa-exclamation-triangle"></i>
+      <div class="weather-value" id="alerts-value">—</div>
+      <div class="weather-label">Alertas</div>
+    </div>
+    <div class="weather-card"><i class="fas fa-cloud-rain"></i>
+      <div class="weather-value" id="rain-prob-value">—</div>
+      <div class="weather-label">Prob. de Lluvia</div>
+    </div>
+  </div>
+
+  <!-- Footer en dos columnas -->
+  <footer>
+    <div class="footer-columns">
+      <!-- Columna izquierda -->
+      <div>
+        <h3>Autores</h3>
+        <div>Paola Alejandra Bello Flautero</div>
+        <div>Juan David Parra Lozano</div>
+        <br>
+        <h3>Créditos</h3>
+        <div class="credits">Programador: Juan David Parra Lozano</div>
+        <div class="credits">Versión: Weathermo JP – Prototipo v1.0 (2025)</div>
+      </div>
+
+      <!-- Columna derecha -->
+      <div>
+        <h3>Información de contacto</h3>
+        <div><b>Juan David Parra Lozano</b></div>
+        <div class="contact-item"><i class="fab fa-whatsapp"></i> 350 520 6198</div>
+        <div class="contact-item"><i class="fas fa-envelope"></i> juandavidpl2306@gmail.com</div>
+        <br>
+        <div><b>Paola Alejandra Bello Flautero</b></div>
+        <div class="contact-item"><i class="fab fa-whatsapp"></i> 314 706 6260</div>
+        <div class="contact-item"><i class="fas fa-envelope"></i> Pau.bello5013@gmail.com</div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const API_KEY = "49688e16c4441df2783a5968c60c280b"; // tu API Key
+    let map, marker;
+
+    function initMap() {
+      map = L.map("map").setView([4.711, -74.0721], 6); // Colombia inicial
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap contributors"
+      }).addTo(map);
+
+      marker = L.marker([4.711, -74.0721], {draggable:true}).addTo(map);
+
+      map.on("moveend", () => {
+        const c = map.getCenter();
+        marker.setLatLng(c);
+        fetchWeather(c.lat, c.lng);
+      });
+
+      marker.on("dragend", () => {
+        const p = marker.getLatLng();
+        fetchWeather(p.lat, p.lng);
+      });
+
+      fetchWeather(4.711, -74.0721);
+    }
+
+    async function fetchWeather(lat, lon) {
+      try {
+        const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&lang=es&appid=${API_KEY}`);
+        const data = await res.json();
+        updateWeatherUI(data);
+        document.getElementById("search-input").value = data.name + ", " + data.sys.country;
+      } catch (err) {
+        console.error("updateWeather error", err);
+      }
+    }
+
+    function updateWeatherUI(data) {
+      document.getElementById("summary").textContent = data.weather[0].description;
+      document.getElementById("current-temp").textContent = data.main.temp.toFixed(1) + "°C";
+      document.getElementById("temp-value").textContent = data.main.temp.toFixed(1) + "°C";
+      document.getElementById("humidity-value").textContent = data.main.humidity + "%";
+      document.getElementById("wind-value").textContent = (data.wind.speed).toFixed(2) + " km/h";
+
+      const comfort = data.main.temp < 15 ? "Fresco" : data.main.temp < 25 ? "Agradable" : "Caliente";
+      document.getElementById("comfort-value").textContent = comfort;
+      document.getElementById("alerts-value").textContent = "Ninguna";
+
+      const rainProb = Math.min(100, Math.round((data.clouds.all * 0.6 + data.main.humidity * 0.4)));
+      document.getElementById("rain-prob-value").textContent = rainProb + "%";
+    }
+
+    async function searchLocation() {
+      const q = document.getElementById("search-input").value.trim();
+      if (!q) return;
+      try {
+        const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(q)}&units=metric&lang=es&appid=${API_KEY}`);
+        const data = await res.json();
+        if (data && data.coord) {
+          map.setView([data.coord.lat, data.coord.lon], 10);
+          marker.setLatLng([data.coord.lat, data.coord.lon]);
+          updateWeatherUI(data);
+        }
+      } catch (err) {
+        console.error("searchLocation error", err);
+      }
+    }
+
+    window.onload = initMap;
+    document.getElementById("search-input").addEventListener("keypress", e => {
+      if (e.key === "Enter") searchLocation();
+    });
+  </script>
+</body>
+</html>
